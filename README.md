@@ -1,6 +1,6 @@
 # ReWatch
 
-<img src="ReWatch/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png" alt="ReWatch icon: a glowing cyan eye with ornate clouds on a dusty rose background" width="128" align="right">
+<img src="ReWatch/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png" alt="ReWatch icon: a glowing cyan eye with a play symbol in its pupil, inside a replay arrow, under a starry dusty rose sky" width="128" align="right">
 
 An iOS media player built on [mpv](https://mpv.io). It plays the files you already have, including the formats Apple's own player won't open.
 
