@@ -8,6 +8,7 @@ struct LibraryView: View {
     @AppStorage("theme") private var theme: AppTheme = .standard
     @State private var showOpenPanel = false
     @State private var playing: MediaItem?
+    @State private var showLicenses = false
     #if os(macOS)
     @Environment(\.openWindow) private var openWindow
     #endif
@@ -62,12 +63,18 @@ struct LibraryView: View {
             .navigationTitle("ReWatch")
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
+                    // Licences of ReWatch and the libraries inside it
+                    // (several of them require the app to show these).
+                    Button { showLicenses = true } label: {
+                        Label { Text("Licenses") } icon: { tinted("info.circle") }
+                    }
                     themeMenu
                     Button { showOpenPanel = true } label: {
                         Label { Text("Open") } icon: { tinted("folder") }
                     }
                 }
             }
+            .sheet(isPresented: $showLicenses) { LicensesView() }
             .fileImporter(isPresented: $showOpenPanel,
                           allowedContentTypes: Recents.openTypes) { result in
                 if case .success(let url) = result { recents.open(url) }

@@ -58,10 +58,10 @@ Run `xcodegen generate` again after adding, moving or deleting source files.
 
 ```
 ReWatch/
-  App/          App entry point, themes
+  App/          App entry point, themes, Licenses screen
   Library/      Recents list, opening files (bookmarks, never copies)
   Player/       mpv wrapper (MPVPlayer), video surface, player screen
-  Resources/    App icon, accent colour
+  Resources/    App icon, accent colour, licence texts shown in the app
   Supporting/   Info.plist (generated from project.yml), Mac sandbox entitlements
 Packages/MPVKit/  ReWatch's copy of MPVKit's package, using the FFmpeg built below
 Tools/
@@ -97,3 +97,9 @@ Not done yet:
 
 - [mpv](https://mpv.io) and [FFmpeg](https://ffmpeg.org) do the actual playback.
 - [MPVKit](https://github.com/mpvkit/MPVKit) packages them for Apple platforms. ReWatch uses its LGPL build, with FFmpeg rebuilt to add a few formats (still LGPL). The GPL build would make the whole app GPL.
+
+## Licence
+
+ReWatch's own code is under the [MIT licence](LICENSE). The libraries inside the app keep their own licences; FFmpeg, mpv and several others are under the GNU LGPL. [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) lists every library with its licence and source code, and explains how to rebuild ReWatch with your own changed version of one. The app shows the same licences under **Licenses** (the ⓘ button).
+
+Keeping it that way: don't switch to MPVKit's GPL build or pass `--enable-gpl` to FFmpeg, and when adding or updating a library, update the list in `ReWatch/App/LicensesView.swift`, `THIRD-PARTY-NOTICES.md` and the texts in `ReWatch/Resources/Licenses`.

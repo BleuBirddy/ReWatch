@@ -8,6 +8,11 @@
 // Frameworks/. Everything else (libmpv, libass, MoltenVK, ...) is still
 // MPVKit's own prebuilt download, checked by the same checksums.
 //
+// Licence: this file is MPVKit's, modified by ReWatch (FFmpeg targets
+// point at Frameworks/, GPL product removed). Like the rest of MPVKit it is
+// under the GNU LGPL version 3 (LICENSE in this folder), not ReWatch's MIT
+// licence.
+//
 // Updating MPVKit: change the version in Tools/build-ffmpeg.sh, then copy
 // the new version's Package.swift here and point the seven FFmpeg targets
 // (Libav*, Libsw*) at Frameworks/ again.

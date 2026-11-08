@@ -1,3 +1,10 @@
+ReWatch's change to MPVKit's build script (Sources/BuildScripts/
+XCFrameworkBuild/main.swift, MPVKit 1.1.0-n9.0.2). Adds FFmpeg's dts,
+truehd, wv and mxf demuxers and wavpack and theora decoders, and stops the
+build after FFmpeg. Applied by Tools/build-ffmpeg.sh with `git apply`, which
+skips this text. Like MPVKit, this patch is under the GNU LGPL version 3
+(Packages/MPVKit/LICENSE), not ReWatch's MIT licence.
+
 diff --git a/Sources/BuildScripts/XCFrameworkBuild/main.swift b/Sources/BuildScripts/XCFrameworkBuild/main.swift
 index eaccafb..d16212c 100644
 --- a/Sources/BuildScripts/XCFrameworkBuild/main.swift
