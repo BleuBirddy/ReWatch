@@ -4,9 +4,9 @@
 
 A media player for iPhone, iPad and Mac, built on [mpv](https://mpv.io). It plays the files you already have, where they already are, including the formats Apple's own player won't open.
 
-**Video:** `.3g2` `.3gp` `.asf` `.avi` `.divx` `.f4f` `.f4v` `.flv` `.m2p` `.m2ts` `.m4v` `.mkv` `.mov` `.mp4` `.mpeg` `.mpg` `.ogm` `.ps` `.ts` `.vob` `.webm` `.wmv`
+**Video:** `.3g2` `.3gp` `.asf` `.avi` `.divx` `.f4f` `.f4v` `.flv` `.m2p` `.m2ts` `.m4v` `.mkv` `.mov` `.mp4` `.mpeg` `.mpg` `.mxf` `.ogm` `.ogv` `.ps` `.ts` `.vob` `.webm` `.wmv`
 
-**Audio:** `.aac` `.ac3` `.eac3` `.flac` `.m4a` `.mka` `.mp3` `.ogg` `.opus` `.wav` `.wma`
+**Audio:** `.aac` `.ac3` `.dts` `.eac3` `.flac` `.m4a` `.mka` `.mp3` `.ogg` `.opus` `.thd` (Dolby TrueHD) `.wav` `.wma` `.wv` (WavPack)
 
 **Playlists:** `.m3u` (each entry must be a file ReWatch can read or, on iPhone, a web link)
 
@@ -34,6 +34,7 @@ No account, no ads, no tracking. ReWatch never copies, uploads or stores your fi
 - iOS 17 or later (iPhone and iPad), or macOS 14 or later
 - Xcode 26 or later
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)
+- [Homebrew](https://brew.sh), for the tools that build FFmpeg (the build script installs them)
 
 ## Building
 
@@ -42,11 +43,14 @@ The Xcode project is generated from `project.yml` and isn't checked in.
 ```bash
 git clone https://github.com/BleuBirddy/ReWatch.git
 cd ReWatch
+Tools/build-ffmpeg.sh
 xcodegen generate
 open ReWatch.xcodeproj
 ```
 
-Choose your team under **Signing & Capabilities**, pick an iPhone, iPad or **My Mac** as the run destination, then build and run. The first build downloads MPVKit (libmpv and FFmpeg as prebuilt binaries), which takes a few minutes.
+`Tools/build-ffmpeg.sh` builds FFmpeg once, for iPhone/iPad, the Simulator and the Mac (about 10 minutes, plus downloading MPVKit's other libraries). It runs [MPVKit](https://github.com/mpvkit/MPVKit)'s own build scripts at the version ReWatch uses, with `Tools/ffmpeg/mpvkit-extra-formats.patch` applied. The patch only adds the parts MPVKit's prebuilt FFmpeg leaves out: the readers for standalone `.dts`, `.thd`, `.wv` and `.mxf` files, and the WavPack and Theora decoders. All of them are FFmpeg's own LGPL code. The result goes to `Packages/MPVKit/Frameworks/`, which isn't checked in. Run the script again only after changing the patch or the MPVKit version.
+
+Choose your team under **Signing & Capabilities**, pick an iPhone, iPad or **My Mac** as the run destination, then build and run. The first build downloads the rest of MPVKit (libmpv and its other libraries, prebuilt), which takes a few minutes.
 
 Run `xcodegen generate` again after adding, moving or deleting source files.
 
@@ -59,7 +63,10 @@ ReWatch/
   Player/       mpv wrapper (MPVPlayer), video surface, player screen
   Resources/    App icon, accent colour
   Supporting/   Info.plist (generated from project.yml), Mac sandbox entitlements
+Packages/MPVKit/  ReWatch's copy of MPVKit's package, using the FFmpeg built below
 Tools/
+  build-ffmpeg.sh      Builds FFmpeg with the extra formats into Packages/MPVKit/Frameworks
+  ffmpeg/              The patch for MPVKit's build scripts
   make-icon.swift      Draws the app icon (iOS and Mac versions)
   make-mac-icons.sh    Cuts the Mac icon sizes
 project.yml     XcodeGen project definition
@@ -80,7 +87,7 @@ Tools/make-mac-icons.sh
 
 Early. On the iPhone simulator, all four formats play, and resume, track switching, themes, background audio and Recents work. On a Mac, a 1080p video plays and resumes after quitting, and a sample of every listed format except `.f4f` plays.
 
-Not supported yet: standalone `.dts`, `.thd` (TrueHD), `.wv` (WavPack) and `.mxf` files, and Theora video. The FFmpeg build that MPVKit ships leaves out those readers and decoders; supporting them means building FFmpeg with them included.
+Standalone `.dts`, `.thd`, `.wv` and `.mxf` files and Theora video play on the Mac and the iPhone simulator with ReWatch's own FFmpeg build (see Building).
 
 Not done yet:
 - Testing on a real iPhone
@@ -89,4 +96,4 @@ Not done yet:
 ## Credits
 
 - [mpv](https://mpv.io) and [FFmpeg](https://ffmpeg.org) do the actual playback.
-- [MPVKit](https://github.com/mpvkit/MPVKit) packages them for Apple platforms. ReWatch uses its LGPL build. The GPL build would make the whole app GPL.
+- [MPVKit](https://github.com/mpvkit/MPVKit) packages them for Apple platforms. ReWatch uses its LGPL build, with FFmpeg rebuilt to add a few formats (still LGPL). The GPL build would make the whole app GPL.

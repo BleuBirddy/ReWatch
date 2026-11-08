@@ -17,10 +17,13 @@ settings:
 # libmpv (the engine inside the mpv player) plus FFmpeg, built for iOS.
 # The plain "MPVKit" product is the LGPL build; "MPVKit-GPL" adds GPL-only
 # parts (Samba shares etc.) and would force the whole app to be GPL.
+#
+# ReWatch uses its own copy of MPVKit's package (Packages/MPVKit) so it can
+# swap in an FFmpeg built with a few more formats (.dts, .thd, .wv, .mxf,
+# Theora). Run Tools/build-ffmpeg.sh once before the first build; see README.
 packages:
   MPVKit:
-    url: https://github.com/mpvkit/MPVKit.git
-    exactVersion: 1.1.0-n9.0.2
+    path: Packages/MPVKit
 
 targets:
   ReWatch:
@@ -199,6 +202,47 @@ targets:
             UTTypeTagSpecification:
               public.filename-extension:
                 - ogm
+                - ogv
+              public.mime-type:
+                - video/ogg
+          - UTTypeIdentifier: dev.jey.rewatch.dts
+            UTTypeDescription: DTS Audio
+            UTTypeConformsTo:
+              - public.audio
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - dts
+              public.mime-type:
+                - audio/vnd.dts
+          - UTTypeIdentifier: dev.jey.rewatch.truehd
+            UTTypeDescription: Dolby TrueHD Audio
+            UTTypeConformsTo:
+              - public.audio
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - thd
+          - UTTypeIdentifier: dev.jey.rewatch.wavpack
+            UTTypeDescription: WavPack Audio
+            UTTypeConformsTo:
+              - public.audio
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - wv
+              public.mime-type:
+                - audio/x-wavpack
+          - UTTypeIdentifier: org.smpte.mxf
+            UTTypeDescription: MXF Video
+            UTTypeConformsTo:
+              - public.movie
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - mxf
+              public.mime-type:
+                - application/mxf
         # Offers ReWatch in the share sheet / "Open in" and Finder's Open
         # With for any video or audio file and m3u playlists. Alternate rank
         # so Photos, Music and QuickTime stay the defaults. (.ps is left out

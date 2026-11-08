@@ -1,0 +1,39 @@
+diff --git a/Sources/BuildScripts/XCFrameworkBuild/main.swift b/Sources/BuildScripts/XCFrameworkBuild/main.swift
+index eaccafb..d16212c 100644
+--- a/Sources/BuildScripts/XCFrameworkBuild/main.swift
++++ b/Sources/BuildScripts/XCFrameworkBuild/main.swift
+@@ -33,10 +33,11 @@ do {
+     try BuildDav1d().buildALL()
+     try BuildFFMPEG().buildALL()
+ 
+-    // mpv
+-    try BuildUchardet().buildALL()
+-    try BuildLuaJIT().buildALL()
+-    try BuildMPV().buildALL()
++    // ReWatch: stop after FFmpeg. ReWatch keeps MPVKit's prebuilt libmpv,
++    // which links against these FFmpeg libraries (same FFmpeg version).
++    // try BuildUchardet().buildALL()
++    // try BuildLuaJIT().buildALL()
++    // try BuildMPV().buildALL()
+ } catch {
+     print(error.localizedDescription)
+     exit(1)
+@@ -706,6 +707,8 @@ private class BuildFFMPEG: BaseBuild {
+         "--enable-demuxer=ogg", "--enable-demuxer=rm", "--enable-demuxer=rtsp", "--enable-demuxer=rtp",
+         "--enable-demuxer=srt", "--enable-demuxer=webvtt",
+         "--enable-demuxer=vc1", "--enable-demuxer=wav", "--enable-demuxer=webm_dash_manifest",
++        // ReWatch: standalone DTS, Dolby TrueHD, WavPack and MXF files.
++        "--enable-demuxer=dts", "--enable-demuxer=truehd", "--enable-demuxer=wv", "--enable-demuxer=mxf",
+         // ./configure --list-bsfs
+         "--enable-bsfs",
+         // ./configure --list-decoders
+@@ -733,6 +736,9 @@ private class BuildFFMPEG: BaseBuild {
+         "--enable-decoder=mp1*", "--enable-decoder=mp2*", "--enable-decoder=mp3*", "--enable-decoder=opus",
+         "--enable-decoder=pcm*",
+         "--enable-decoder=truehd", "--enable-decoder=tta", "--enable-decoder=vorbis", "--enable-decoder=wma*",
++        // ReWatch: WavPack audio, and Theora video (old .ogm/.ogg files).
++        // Both are FFmpeg's own LGPL decoders, no outside libraries.
++        "--enable-decoder=wavpack", "--enable-decoder=theora",
+         // 字幕
+         "--enable-decoder=ass", "--enable-decoder=ccaption", "--enable-decoder=dvbsub", "--enable-decoder=dvdsub",
+         "--enable-decoder=mpl2", "--enable-decoder=movtext",

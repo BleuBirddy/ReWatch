@@ -358,6 +358,95 @@
 				<key>public.filename-extension</key>
 				<array>
 					<string>ogm</string>
+					<string>ogv</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>video/ogg</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.audio</string>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>DTS Audio</string>
+			<key>UTTypeIdentifier</key>
+			<string>dev.jey.rewatch.dts</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>dts</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>audio/vnd.dts</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.audio</string>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Dolby TrueHD Audio</string>
+			<key>UTTypeIdentifier</key>
+			<string>dev.jey.rewatch.truehd</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>thd</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.audio</string>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>WavPack Audio</string>
+			<key>UTTypeIdentifier</key>
+			<string>dev.jey.rewatch.wavpack</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>wv</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>audio/x-wavpack</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.movie</string>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>MXF Video</string>
+			<key>UTTypeIdentifier</key>
+			<string>org.smpte.mxf</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>mxf</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>application/mxf</string>
 				</array>
 			</dict>
 		</dict>

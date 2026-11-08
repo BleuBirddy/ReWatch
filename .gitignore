@@ -8,3 +8,6 @@ DerivedData/
 build/
 .swiftpm/
 *.log
+
+# Built by Tools/build-ffmpeg.sh (hundreds of MB)
+Packages/MPVKit/Frameworks/

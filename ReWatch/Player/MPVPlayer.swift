@@ -77,8 +77,11 @@ final class MPVPlayer: ObservableObject {
 
         // Options must be set before mpv_initialize. Reference:
         // https://mpv.io/manual/stable/#options
-        var layerPointer = layer
-        mpv_set_option(mpv, "wid", MPV_FORMAT_INT64, &layerPointer)
+        // "wid" tells mpv where to draw: the layer's memory address, passed
+        // as a 64-bit number. Unmanaged gets that address without changing
+        // who owns the layer (the player keeps it alive in `layer`).
+        var layerAddress = Int64(Int(bitPattern: Unmanaged.passUnretained(layer).toOpaque()))
+        mpv_set_option(mpv, "wid", MPV_FORMAT_INT64, &layerAddress)
         setOption("vo", "gpu-next")
         setOption("gpu-api", "vulkan")
         setOption("gpu-context", "moltenvk")

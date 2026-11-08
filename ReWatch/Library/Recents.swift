@@ -38,17 +38,17 @@ final class Recents: ObservableObject {
     // Everything mpv (through MPVKit's FFmpeg) can play that ReWatch offers
     // to open. Left out on purpose:
     // - .sh (a shell script, not media), .ytb and .twi (not media formats).
-    // - .dts, .thd, .wv, .mxf: MPVKit's FFmpeg build has no reader for these
-    //   as standalone files (DTS and TrueHD sound inside mkv/m2ts/vob does
-    //   play). Adding them means building FFmpeg with those demuxers.
+    // .dts, .thd (Dolby TrueHD), .wv (WavPack), .mxf and Theora video
+    // (.ogm/.ogv/.ogg) need ReWatch's own FFmpeg build, which adds the parts
+    // MPVKit's prebuilt one leaves out (Tools/build-ffmpeg.sh).
     nonisolated static let audioExtensions: Set<String> = [
-        "aac", "ac3", "eac3", "flac", "m4a", "mka", "mp3", "ogg", "opus", "wav",
-        "wma",
+        "aac", "ac3", "dts", "eac3", "flac", "m4a", "mka", "mp3", "ogg", "opus",
+        "thd", "wav", "wma", "wv",
     ]
     nonisolated static let videoExtensions: Set<String> = [
         "3g2", "3gp", "asf", "avi", "divx", "f4f", "f4v", "flv", "m2p", "m2ts",
-        "m4v", "mkv", "mov", "mp4", "mpeg", "mpg", "ogm", "ps", "ts",
-        "vob", "webm", "wmv",
+        "m4v", "mkv", "mov", "mp4", "mpeg", "mpg", "mxf", "ogm", "ogv", "ps",
+        "ts", "vob", "webm", "wmv",
     ]
     /// Playlists: mpv plays each entry in turn. Entries must be web links
     /// or files ReWatch is allowed to read (see README).
