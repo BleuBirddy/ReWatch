@@ -1,5 +1,10 @@
 import Foundation
+import QuartzCore
+#if os(iOS)
 import UIKit
+#else
+import AppKit
+#endif
 import Libmpv
 
 /// Swift wrapper around one libmpv instance: the same engine as the mpv
@@ -24,6 +29,11 @@ final class MPVPlayer: ObservableObject {
     private let mpv: OpaquePointer
     private let queue = DispatchQueue(label: "dev.jey.rewatch.mpv", qos: .userInitiated)
     private var isShutDown = false
+    /// The file being played and whether its read permission was switched
+    /// on, so it can be switched off once mpv is done with it.
+    private var openFile: (url: URL, scoped: Bool)?
+    /// Runs on the main thread after mpv has been destroyed.
+    var onClosed: (() -> Void)?
     /// Only touched on `queue`. Stops the event loop once mpv is destroyed.
     private var destroyed = false
 
@@ -55,7 +65,7 @@ final class MPVPlayer: ObservableObject {
         mpv = handle
 
         layer.framebufferOnly = true
-        layer.backgroundColor = UIColor.black.cgColor
+        layer.backgroundColor = CGColor(gray: 0, alpha: 1)
 
         // Options must be set before mpv_initialize. Reference:
         // https://mpv.io/manual/stable/#options
@@ -95,10 +105,18 @@ final class MPVPlayer: ObservableObject {
             Unmanaged<MPVPlayer>.fromOpaque(context).takeUnretainedValue().drainEvents()
         }, Unmanaged.passUnretained(self).toOpaque())
 
+        #if os(iOS)
+        // Mac apps keep drawing when they're not in front, so this is iOS only.
         NotificationCenter.default.addObserver(self, selector: #selector(didEnterBackground),
                                                name: UIApplication.didEnterBackgroundNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(willEnterForeground),
                                                name: UIApplication.willEnterForegroundNotification, object: nil)
+        #else
+        // Quitting the Mac app doesn't close its windows one by one first,
+        // so the player would never get to save its place. Save on quit.
+        NotificationCenter.default.addObserver(self, selector: #selector(appWillTerminate),
+                                               name: NSApplication.willTerminateNotification, object: nil)
+        #endif
     }
 
     deinit { shutdown() }
@@ -113,6 +131,9 @@ final class MPVPlayer: ObservableObject {
     // MARK: Controls
 
     func load(_ url: URL) {
+        // A file outside the app (opened, dropped, shared) can only be read
+        // while its security scope is switched on: for the whole playback.
+        openFile = (url, url.startAccessingSecurityScopedResource())
         command("loadfile", url.path, "replace")
     }
 
@@ -140,17 +161,27 @@ final class MPVPlayer: ObservableObject {
         isShutDown = true
         NotificationCenter.default.removeObserver(self)
 
-        if reachedEnd { command("delete-watch-later-config") }
-        else { command("write-watch-later-config") }
+        saveResumePosition()
 
         mpv_set_wakeup_callback(mpv, nil, nil)
         // On `queue`, after any event loop already queued, so the loop never
         // touches a destroyed handle.
         let handle = mpv
+        let file = openFile, closed = onClosed
         queue.async { [weak self] in
             self?.destroyed = true
             mpv_terminate_destroy(handle)
+            // mpv has closed the file; now it's safe to give up access.
+            if let file, file.scoped { file.url.stopAccessingSecurityScopedResource() }
+            DispatchQueue.main.async { closed?() }
         }
+    }
+
+    /// Remembers where playback is, or forgets it once the file has been
+    /// watched to the end, so a rewatch starts from the top.
+    private func saveResumePosition() {
+        if reachedEnd { command("delete-watch-later-config") }
+        else { command("write-watch-later-config") }
     }
 
     // MARK: Background
@@ -158,8 +189,14 @@ final class MPVPlayer: ObservableObject {
     // Video can't be drawn in the background (and trying leaves a black
     // screen on return), so the video track is switched off while away.
     // Audio keeps playing: that's what lets music run with the screen locked.
-    @objc private func didEnterBackground() { setString("vid", "no") }
+    @objc private func didEnterBackground() {
+        setString("vid", "no")
+        // iOS can end a background app without warning (memory, or a swipe
+        // in the app switcher), so save the resume position now.
+        saveResumePosition()
+    }
     @objc private func willEnterForeground() { setString("vid", "auto") }
+    @objc private func appWillTerminate() { shutdown() }
 
     // MARK: Events
 

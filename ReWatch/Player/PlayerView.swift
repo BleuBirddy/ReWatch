@@ -40,11 +40,26 @@ struct PlayerView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture { setControls(visible: !showControls) }
+        // Mac: moving the mouse brings the controls back, as in most players.
+        .onContinuousHover { phase in
+            if case .active = phase { setControls(visible: true) }
+        }
+        .background { keyboardShortcuts }
+        #if os(iOS)
         .statusBarHidden(!showControls)
         .persistentSystemOverlays(.hidden)
+        #else
+        .navigationTitle(item.title)
+        #endif
         .preferredColorScheme(.dark)
         .onAppear {
-            player.load(item.url)
+            guard let (url, _) = item.resolve() else { dismiss(); return }
+            if item.isTemporaryCopy {
+                // An Inbox copy iOS made for this one viewing: delete it
+                // once mpv has let go of it, so nothing stays in the app.
+                player.onClosed = { try? FileManager.default.removeItem(at: url) }
+            }
+            player.load(url)
             scheduleHide()
         }
         .onDisappear {
@@ -55,6 +70,24 @@ struct PlayerView: View {
             // Keep the controls up while paused; start the fade on resume.
             if paused { setControls(visible: true) } else { scheduleHide() }
         }
+    }
+
+    /// mpv-style keys: space plays/pauses, arrows skip 10 s, Esc closes.
+    /// Invisible buttons, because SwiftUI hangs keyboard shortcuts on
+    /// buttons. Works on the Mac and on an iPad with a keyboard.
+    private var keyboardShortcuts: some View {
+        Group {
+            Button("Play/Pause") { player.togglePause() }
+                .keyboardShortcut(.space, modifiers: [])
+            Button("Back 10 seconds") { player.skip(-10); setControls(visible: true) }
+                .keyboardShortcut(.leftArrow, modifiers: [])
+            Button("Forward 10 seconds") { player.skip(10); setControls(visible: true) }
+                .keyboardShortcut(.rightArrow, modifiers: [])
+            Button("Close") { dismiss() }
+                .keyboardShortcut(.cancelAction)
+        }
+        .opacity(0)
+        .accessibilityHidden(true)
     }
 
     private var audioArtwork: some View {
@@ -169,7 +202,8 @@ struct PlayerView: View {
 }
 
 /// Hosts mpv's Metal layer inside SwiftUI and keeps it sized to the view
-/// (rotation, split screen).
+/// (rotation, split screen, window resizing).
+#if os(iOS)
 private struct VideoSurface: UIViewRepresentable {
     let layer: CALayer
 
@@ -198,3 +232,40 @@ private struct VideoSurface: UIViewRepresentable {
         }
     }
 }
+#else
+private struct VideoSurface: NSViewRepresentable {
+    let layer: CALayer
+
+    func makeNSView(context: Context) -> LayerHostView { LayerHostView(hosted: layer) }
+    func updateNSView(_ view: LayerHostView, context: Context) {}
+
+    final class LayerHostView: NSView {
+        private let hosted: CALayer
+
+        init(hosted: CALayer) {
+            self.hosted = hosted
+            super.init(frame: .zero)
+            // AppKit views have no layer until asked for one.
+            wantsLayer = true
+            layer?.backgroundColor = CGColor(gray: 0, alpha: 1)
+            layer?.addSublayer(hosted)
+        }
+        required init?(coder: NSCoder) { fatalError("not used") }
+
+        override func layout() {
+            super.layout()
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            hosted.frame = bounds
+            // Retina vs. non-Retina, and it changes if the window moves screens.
+            hosted.contentsScale = window?.backingScaleFactor ?? 2
+            CATransaction.commit()
+        }
+
+        override func viewDidChangeBackingProperties() {
+            super.viewDidChangeBackingProperties()
+            needsLayout = true
+        }
+    }
+}
+#endif

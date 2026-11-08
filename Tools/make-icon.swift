@@ -1,6 +1,7 @@
 // Draws the ReWatch app icon: a glowing #ADFFFF eye inside a "replay"
 // ring, under a starry sky, on #9B666B. Run from the repo root:
-//   swift Tools/make-icon.swift ReWatch/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png
+//   swift Tools/make-icon.swift ReWatch/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png Tools/AppIcon-mac.png
+// then Tools/make-mac-icons.sh to cut the Mac sizes from the second file.
 //
 // Layers, back to front: sky gradient, ripples, stars, halo, replay
 // ring, eye. Coordinates are CoreGraphics: origin bottom-left.
@@ -186,6 +187,27 @@ ctx.setFillColor(rgb(0x5E363B)); ctx.addPath(play); ctx.fillPath()
 
 ctx.restoreGState()
 
-let outURL = URL(fileURLWithPath: CommandLine.arguments[1])
-let dest = CGImageDestinationCreateWithURL(outURL as CFURL, UTType.png.identifier as CFString, 1, nil)!
-CGImageDestinationAddImage(dest, ctx.makeImage()!, nil); CGImageDestinationFinalize(dest)
+func write(_ image: CGImage, to path: String) {
+    let dest = CGImageDestinationCreateWithURL(URL(fileURLWithPath: path) as CFURL, UTType.png.identifier as CFString, 1, nil)!
+    CGImageDestinationAddImage(dest, image, nil); CGImageDestinationFinalize(dest)
+}
+let square = ctx.makeImage()!
+write(square, to: CommandLine.arguments[1])
+
+// Optional second path: the Mac version. iOS rounds icon corners itself;
+// the Mac doesn't, so the art goes inside Apple's Mac icon grid: an
+// 824-point rounded square centred on a 1024 transparent canvas, with a
+// soft drop shadow.
+if CommandLine.arguments.count > 2 {
+    let mac = CGContext(data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: 0,
+                        space: cs, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+    let body = CGRect(x: 100, y: 100, width: 824, height: 824)
+    let shape = CGPath(roundedRect: body, cornerWidth: 185, cornerHeight: 185, transform: nil)
+    mac.saveGState()
+    mac.setShadow(offset: CGSize(width: 0, height: -10), blur: 24, color: CGColor(gray: 0, alpha: 0.35))
+    mac.addPath(shape); mac.setFillColor(rgb(bg)); mac.fillPath()
+    mac.restoreGState()
+    mac.addPath(shape); mac.clip()
+    mac.draw(square, in: body)
+    write(mac.makeImage()!, to: CommandLine.arguments[2])
+}

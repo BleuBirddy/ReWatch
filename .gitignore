@@ -7,4 +7,4 @@ xcuserdata/
 DerivedData/
 build/
 .swiftpm/
-build.log
+*.log

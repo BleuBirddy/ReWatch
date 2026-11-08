@@ -1,5 +1,7 @@
 import SwiftUI
+#if os(iOS)
 import UIKit
+#endif
 
 /// The app's colour themes. Picked from the palette menu in the library and
 /// remembered with @AppStorage("theme"), so every screen reads the same value.
@@ -54,6 +56,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
     /// afterwards, which is why LibraryView rebuilds its NavigationStack
     /// (`.id(theme)`) when the theme changes.
     func applyToNavigationBars() {
+        #if os(iOS)
         let text = UIColor(accent)
         let opaque = UINavigationBarAppearance()
         opaque.configureWithOpaqueBackground()
@@ -72,6 +75,8 @@ enum AppTheme: String, CaseIterable, Identifiable {
         bar.compactAppearance = opaque
         bar.scrollEdgeAppearance = edge
         bar.tintColor = text
+        #endif
+        // The Mac has no large navigation titles to colour.
     }
 }
 

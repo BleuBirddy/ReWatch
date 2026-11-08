@@ -1,4 +1,4 @@
-import UIKit
+import QuartzCore
 
 /// The surface mpv draws video onto (through MoltenVK, which runs mpv's
 /// Vulkan renderer on top of Metal). Both overrides are workarounds from

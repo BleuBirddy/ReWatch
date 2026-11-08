@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Sandbox: ReWatch only sees its own folder plus files you choose. -->
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<!-- Read files picked in the Open panel or dropped on the window. -->
+	<key>com.apple.security.files.user-selected.read-only</key>
+	<true/>
+	<!-- Remember those files in Recents across launches (security-scoped bookmarks). -->
+	<key>com.apple.security.files.bookmarks.app-scope</key>
+	<true/>
+</dict>
+</plist>
