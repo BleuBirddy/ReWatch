@@ -145,9 +145,9 @@ struct LibraryView: View {
 
     private static var emptyHint: String {
         #if os(macOS)
-        "Open an mp3, mp4, flac or mkv file, or drag one onto this window. It plays from where it is; nothing is copied."
+        "Open a video or audio file, or drag one onto this window. It plays from where it is; nothing is copied."
         #else
-        "Open an mp3, mp4, flac or mkv file from Files, or share one to ReWatch. It plays from where it is; nothing is copied."
+        "Open a video or audio file from Files, or share one to ReWatch. It plays from where it is; nothing is copied."
         #endif
     }
 
@@ -170,7 +170,7 @@ private struct MediaRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: item.isAudio ? "music.note" : "film")
+            Image(systemName: item.isPlaylist ? "list.bullet" : item.isAudio ? "music.note" : "film")
                 .font(.title2)
                 .frame(width: 36)
             VStack(alignment: .leading, spacing: 2) {

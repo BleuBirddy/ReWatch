@@ -20,6 +20,7 @@ struct MediaItem: Identifiable, Hashable, Codable {
     var isTemporaryCopy = false
 
     var isAudio: Bool { Recents.audioExtensions.contains(ext) }
+    var isPlaylist: Bool { Recents.playlistExtensions.contains(ext) }
 
     /// The file's current location, or nil if it's gone.
     func resolve() -> (url: URL, isStale: Bool)? {
@@ -34,17 +35,33 @@ struct MediaItem: Identifiable, Hashable, Codable {
 /// bookmarks. Removing one only forgets it; the file itself is never touched.
 @MainActor
 final class Recents: ObservableObject {
-    nonisolated static let audioExtensions: Set<String> = ["mp3", "flac"]
-    nonisolated static let videoExtensions: Set<String> = ["mp4", "mkv"]
-    nonisolated static var supportedExtensions: Set<String> { audioExtensions.union(videoExtensions) }
-
-    /// Types the Open panel lets you pick. mkv comes from the type declared
-    /// in project.yml (UTImportedTypeDeclarations).
-    static let openTypes: [UTType] = [
-        .mp3, .mpeg4Movie,
-        UTType("org.xiph.flac") ?? .audio,
-        UTType("org.matroska.mkv") ?? .movie,
+    // Everything mpv (through MPVKit's FFmpeg) can play that ReWatch offers
+    // to open. Left out on purpose:
+    // - .sh (a shell script, not media), .ytb and .twi (not media formats).
+    // - .dts, .thd, .wv, .mxf: MPVKit's FFmpeg build has no reader for these
+    //   as standalone files (DTS and TrueHD sound inside mkv/m2ts/vob does
+    //   play). Adding them means building FFmpeg with those demuxers.
+    nonisolated static let audioExtensions: Set<String> = [
+        "aac", "ac3", "eac3", "flac", "m4a", "mka", "mp3", "ogg", "opus", "wav",
+        "wma",
     ]
+    nonisolated static let videoExtensions: Set<String> = [
+        "3g2", "3gp", "asf", "avi", "divx", "f4f", "f4v", "flv", "m2p", "m2ts",
+        "m4v", "mkv", "mov", "mp4", "mpeg", "mpg", "ogm", "ps", "ts",
+        "vob", "webm", "wmv",
+    ]
+    /// Playlists: mpv plays each entry in turn. Entries must be web links
+    /// or files ReWatch is allowed to read (see README).
+    nonisolated static let playlistExtensions: Set<String> = ["m3u"]
+    nonisolated static var supportedExtensions: Set<String> {
+        audioExtensions.union(videoExtensions).union(playlistExtensions)
+    }
+
+    /// Types the Open panel lets you pick, one per extension. Types the
+    /// system doesn't know come from UTImportedTypeDeclarations in
+    /// project.yml; anything still unknown gets a type made up from the
+    /// extension, which matches files with that extension all the same.
+    static let openTypes: [UTType] = supportedExtensions.sorted().compactMap { UTType(filenameExtension: $0) }
 
     // The sandboxed Mac app needs "security-scoped" bookmarks to read a
     // file again after relaunch (entitlement files.bookmarks.app-scope).
@@ -115,7 +132,7 @@ final class Recents: ObservableObject {
     private func makeItem(for url: URL) -> MediaItem? {
         let ext = url.pathExtension.lowercased()
         guard Self.supportedExtensions.contains(ext) else {
-            lastError = "ReWatch plays mp3, mp4, flac and mkv. \(url.lastPathComponent) isn't one of those."
+            lastError = "ReWatch doesn't play .\(ext) files, so it can't open \(url.lastPathComponent)."
             return nil
         }
         // Files from the Open panel, a drop or another app come with

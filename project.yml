@@ -70,8 +70,10 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        # iOS has no built-in type for Matroska, so ReWatch declares one.
-        # Without it the file picker greys out .mkv files.
+        # File types iOS and macOS don't know out of the box (or only know
+        # when another player such as IINA is installed). Without these the
+        # Open panel greys the files out and "Open in" doesn't offer ReWatch.
+        # Where the system already declares a type, its declaration wins.
         UTImportedTypeDeclarations:
           - UTTypeIdentifier: org.matroska.mkv
             UTTypeDescription: Matroska Video
@@ -83,17 +85,142 @@ targets:
                 - mkv
               public.mime-type:
                 - video/x-matroska
-        # Offers ReWatch in the share sheet / "Open in". Alternate rank so
-        # Photos/Music stay the defaults for files they already handle.
+          - UTTypeIdentifier: org.matroska.mka
+            UTTypeDescription: Matroska Audio
+            UTTypeConformsTo:
+              - public.audio
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - mka
+              public.mime-type:
+                - audio/x-matroska
+          - UTTypeIdentifier: org.webmproject.webm
+            UTTypeDescription: WebM Video
+            UTTypeConformsTo:
+              - public.movie
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - webm
+              public.mime-type:
+                - video/webm
+          - UTTypeIdentifier: com.adobe.flash.video
+            UTTypeDescription: Flash Video
+            UTTypeConformsTo:
+              - public.movie
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - flv
+                - f4v
+              public.mime-type:
+                - video/x-flv
+          - UTTypeIdentifier: dev.jey.rewatch.f4f
+            UTTypeDescription: Flash Video Fragment
+            UTTypeConformsTo:
+              - public.movie
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - f4f
+          - UTTypeIdentifier: com.microsoft.windows-media-wmv
+            UTTypeDescription: Windows Media Video
+            UTTypeConformsTo:
+              - public.movie
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - wmv
+              public.mime-type:
+                - video/x-ms-wmv
+          - UTTypeIdentifier: com.microsoft.windows-media-wma
+            UTTypeDescription: Windows Media Audio
+            UTTypeConformsTo:
+              - public.audio
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - wma
+              public.mime-type:
+                - audio/x-ms-wma
+          - UTTypeIdentifier: com.microsoft.advanced-systems-format
+            UTTypeDescription: Advanced Systems Format
+            UTTypeConformsTo:
+              - public.movie
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - asf
+              public.mime-type:
+                - video/x-ms-asf
+          - UTTypeIdentifier: dev.jey.rewatch.divx
+            UTTypeDescription: DivX Video
+            UTTypeConformsTo:
+              - public.movie
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - divx
+              public.mime-type:
+                - video/divx
+          - UTTypeIdentifier: dev.jey.rewatch.mpeg-ps
+            UTTypeDescription: MPEG Program Stream
+            UTTypeConformsTo:
+              - public.movie
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - m2p
+          - UTTypeIdentifier: dev.jey.rewatch.vob
+            UTTypeDescription: DVD Video Object
+            UTTypeConformsTo:
+              - public.movie
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - vob
+          - UTTypeIdentifier: org.xiph.ogg-audio
+            UTTypeDescription: Ogg Audio
+            UTTypeConformsTo:
+              - public.audio
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - ogg
+                - opus
+              public.mime-type:
+                - audio/ogg
+          - UTTypeIdentifier: dev.jey.rewatch.ogm
+            UTTypeDescription: Ogg Video
+            UTTypeConformsTo:
+              - public.movie
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - ogm
+        # Offers ReWatch in the share sheet / "Open in" and Finder's Open
+        # With for any video or audio file and m3u playlists. Alternate rank
+        # so Photos, Music and QuickTime stay the defaults. (.ps is left out
+        # on purpose: the system knows it as PostScript, and ReWatch
+        # shouldn't be offered for every PostScript document.)
         CFBundleDocumentTypes:
-          - CFBundleTypeName: Media
+          - CFBundleTypeName: Video
             CFBundleTypeRole: Viewer
             LSHandlerRank: Alternate
             LSItemContentTypes:
-              - public.mp3
-              - public.mpeg-4
-              - org.xiph.flac
-              - org.matroska.mkv
+              - public.movie
+              - public.audiovisual-content
+          - CFBundleTypeName: Audio
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - public.audio
+          - CFBundleTypeName: Playlist
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - public.m3u-playlist
     dependencies:
       - package: MPVKit
         product: MPVKit

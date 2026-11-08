@@ -24,6 +24,14 @@ final class MPVPlayer: ObservableObject {
     @Published private(set) var hasVideo = false
     @Published private(set) var reachedEnd = false
 
+    /// Watched to the end. mpv's eof-reached alone isn't enough: it turns
+    /// on as soon as mpv has *read* the whole file, which for a song can
+    /// be long before it has finished *playing* it. So also require the
+    /// position to be within a second of the end.
+    var isFinished: Bool {
+        reachedEnd && duration > 0 && position >= duration - 1
+    }
+
     let layer = MetalLayer()
 
     private let mpv: OpaquePointer
@@ -180,7 +188,7 @@ final class MPVPlayer: ObservableObject {
     /// Remembers where playback is, or forgets it once the file has been
     /// watched to the end, so a rewatch starts from the top.
     private func saveResumePosition() {
-        if reachedEnd { command("delete-watch-later-config") }
+        if isFinished { command("delete-watch-later-config") }
         else { command("write-watch-later-config") }
     }
 

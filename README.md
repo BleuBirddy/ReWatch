@@ -4,12 +4,13 @@
 
 A media player for iPhone, iPad and Mac, built on [mpv](https://mpv.io). It plays the files you already have, where they already are, including the formats Apple's own player won't open.
 
-| Format | Type |
-|---|---|
-| `.mp4` | Video |
-| `.mkv` | Video (Matroska, with multiple audio and subtitle tracks) |
-| `.mp3` | Audio |
-| `.flac` | Audio (lossless) |
+**Video:** `.3g2` `.3gp` `.asf` `.avi` `.divx` `.f4f` `.f4v` `.flv` `.m2p` `.m2ts` `.m4v` `.mkv` `.mov` `.mp4` `.mpeg` `.mpg` `.ogm` `.ps` `.ts` `.vob` `.webm` `.wmv`
+
+**Audio:** `.aac` `.ac3` `.eac3` `.flac` `.m4a` `.mka` `.mp3` `.ogg` `.opus` `.wav` `.wma`
+
+**Playlists:** `.m3u` (each entry must be a file ReWatch can read or, on iPhone, a web link)
+
+MKV and other containers can carry several audio and subtitle tracks, including DTS and Dolby TrueHD sound.
 
 No account, no ads, no tracking. ReWatch never copies, uploads or stores your files: it reads them in place.
 
@@ -77,7 +78,9 @@ Tools/make-mac-icons.sh
 
 ## Status
 
-Early. On the iPhone simulator, all four formats play, and resume, track switching, themes, background audio and Recents work. On a Mac, a 1080p video plays and resumes after quitting.
+Early. On the iPhone simulator, all four formats play, and resume, track switching, themes, background audio and Recents work. On a Mac, a 1080p video plays and resumes after quitting, and a sample of every listed format except `.f4f` plays.
+
+Not supported yet: standalone `.dts`, `.thd` (TrueHD), `.wv` (WavPack) and `.mxf` files, and Theora video. The FFmpeg build that MPVKit ships leaves out those readers and decoders; supporting them means building FFmpeg with them included.
 
 Not done yet:
 - Testing on a real iPhone
