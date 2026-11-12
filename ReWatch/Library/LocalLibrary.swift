@@ -25,9 +25,19 @@ final class LocalLibrary: ObservableObject {
     /// Set by File > Import… (⇧⌘I); LibraryView shows the picker.
     @Published var importRequested = false
 
-    let folder = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+    let folder: URL
 
-    init() { reload() }
+    /// Copies in progress are written under this prefix. The leading dot
+    /// hides them from the list (and from the Files app) until complete.
+    nonisolated static let partialPrefix = ".partial-"
+
+    /// `folder` is the app's Documents folder; tests pass their own.
+    init(folder: URL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]) {
+        self.folder = folder
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        removeLeftoverPartials()
+        reload()
+    }
 
     /// Re-reads the folder. Called on launch, after imports and deletes, and
     /// when the app comes back (files may have been changed in Files).
@@ -60,22 +70,22 @@ final class LocalLibrary: ObservableObject {
                 if scoped { source.stopAccessingSecurityScopedResource() }
                 continue
             }
-            let destination = uniqueDestination(for: source.lastPathComponent)
+            // Copy under a hidden name first; it gets its real name only once
+            // complete, so a half-copied video never shows up in the list.
+            let name = source.lastPathComponent
+            let partial = folder.appendingPathComponent(Self.partialPrefix + UUID().uuidString + "-" + name)
             importing += 1
             Task.detached(priority: .userInitiated) {
                 var failure: String?
-                do { try FileManager.default.copyItem(at: source, to: destination) }
+                do { try FileManager.default.copyItem(at: source, to: partial) }
                 catch {
                     // Don't leave half a video behind (drive pulled mid-copy).
-                    try? FileManager.default.removeItem(at: destination)
-                    failure = "Couldn't import \(source.lastPathComponent): \(error.localizedDescription)"
+                    try? FileManager.default.removeItem(at: partial)
+                    failure = "Couldn't import \(name): \(error.localizedDescription)"
                 }
                 if scoped { source.stopAccessingSecurityScopedResource() }
                 await MainActor.run { [weak self, failure] in
-                    guard let self else { return }
-                    self.importing -= 1
-                    if let failure { self.lastError = failure }
-                    self.reload()
+                    self?.finishImport(partial: failure == nil ? partial : nil, name: name, failure: failure)
                 }
             }
         }
@@ -103,6 +113,40 @@ final class LocalLibrary: ObservableObject {
     }
 
     // MARK: Private
+
+    /// Back on the main thread: give the finished copy its real name. The
+    /// name is chosen here, not when the copy started, so two files called
+    /// "Movie.mkv" imported at once become "Movie.mkv" and "Movie 2.mkv"
+    /// instead of the second one failing.
+    private func finishImport(partial: URL?, name: String, failure: String?) {
+        importing -= 1
+        if let failure { lastError = failure }
+        if let partial {
+            var destination = uniqueDestination(for: name)
+            do {
+                // Same folder, so this is a rename: instant and all-or-nothing.
+                try FileManager.default.moveItem(at: partial, to: destination)
+                // Imports are copies of files that exist elsewhere, and videos
+                // are big: backing them up would quietly fill people's iCloud.
+                // Excluded, so they stay on this device only.
+                var values = URLResourceValues()
+                values.isExcludedFromBackup = true
+                try? destination.setResourceValues(values)
+            } catch {
+                try? FileManager.default.removeItem(at: partial)
+                lastError = "Couldn't import \(name): \(error.localizedDescription)"
+            }
+        }
+        reload()
+    }
+
+    /// Copies interrupted by the app being closed or killed.
+    private func removeLeftoverPartials() {
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
+        for name in names where name.hasPrefix(Self.partialPrefix) {
+            try? FileManager.default.removeItem(at: folder.appendingPathComponent(name))
+        }
+    }
 
     /// Same name and same size as a file already here: importing it again
     /// would only use up space, so it's skipped.

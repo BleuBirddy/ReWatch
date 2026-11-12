@@ -13,6 +13,8 @@ struct PlayerView: View {
     @State private var scrubbing = false
     @State private var scrubValue: Double = 0
     @State private var hideTask: Task<Void, Never>?
+    /// Set when the file can't even be found (before mpv sees it).
+    @State private var openError: String?
 
     var body: some View {
         ZStack {
@@ -53,18 +55,31 @@ struct PlayerView: View {
         #endif
         .preferredColorScheme(.dark)
         .onAppear {
-            guard let (url, _) = item.resolve() else { dismiss(); return }
+            guard let (url, _) = item.resolve() else {
+                // Say why, rather than closing as if nothing happened.
+                openError = "ReWatch can't find \u{201C}\(item.title)\u{201D}. If it's on a USB drive, plug it back in and try again."
+                return
+            }
             if item.isTemporaryCopy {
                 // An Inbox copy iOS made for this one viewing: delete it
                 // once mpv has let go of it, so nothing stays in the app.
                 player.onClosed = { try? FileManager.default.removeItem(at: url) }
             }
-            player.load(url)
+            player.load(url, title: item.title)
             scheduleHide()
         }
         .onDisappear {
             hideTask?.cancel()
             player.shutdown()
+        }
+        // Missing file, unreadable drive, not a media file: tell the person
+        // and close, instead of leaving a black screen.
+        .alert("Can't play \u{201C}\(item.title)\u{201D}", isPresented: Binding(
+            get: { openError != nil || player.failure != nil },
+            set: { _ in })) {
+            Button("OK") { dismiss() }
+        } message: {
+            Text(openError ?? player.failure ?? "")
         }
         .onChange(of: player.isPaused) { _, paused in
             // Keep the controls up while paused; start the fade on resume.

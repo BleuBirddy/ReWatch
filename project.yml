@@ -272,6 +272,22 @@ targets:
       - package: MPVKit
         product: MPVKit
 
+  # Unit tests, run inside the app (so they can use its code and mpv).
+  # Run in the simulator: they use iOS background notifications.
+  ReWatchTests:
+    type: bundle.unit-test
+    supportedDestinations: [iOS, macOS]
+    platform: auto
+    sources:
+      - path: ReWatchTests
+    dependencies:
+      - target: ReWatch
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: dev.jey.rewatch.tests
+        TARGETED_DEVICE_FAMILY: "1,2"
+
 schemes:
   ReWatch:
     build:
@@ -279,5 +295,9 @@ schemes:
         ReWatch: all
     run:
       config: Debug
+    test:
+      config: Debug
+      targets:
+        - ReWatchTests
     archive:
       config: Release

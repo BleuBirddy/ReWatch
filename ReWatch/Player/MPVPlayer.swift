@@ -23,6 +23,9 @@ final class MPVPlayer: ObservableObject {
     /// embedded cover art (mpv shows the art as a one-frame video).
     @Published private(set) var hasVideo = false
     @Published private(set) var reachedEnd = false
+    /// Why the file couldn't be played, in words for the person watching.
+    /// Set when mpv gives up on a file (missing, unreadable, not media).
+    @Published private(set) var failure: String?
 
     /// Watched to the end. mpv's eof-reached alone isn't enough: it turns
     /// on as soon as mpv has *read* the whole file, which for a song can
@@ -42,6 +45,9 @@ final class MPVPlayer: ObservableObject {
     private var openFile: (url: URL, scoped: Bool)?
     /// Runs on the main thread after mpv has been destroyed.
     var onClosed: (() -> Void)?
+    /// Lock screen, Control Center, headphone buttons and the phone's audio
+    /// rules (calls, unplugged headphones). Nil when headless (tests).
+    private let controls: SystemMediaControls?
     /// Only touched on `queue`. Stops the event loop once mpv is destroyed.
     private var destroyed = false
 
@@ -68,25 +74,37 @@ final class MPVPlayer: ObservableObject {
         }
     }
 
-    init() {
+    /// - Parameters:
+    ///   - headless: no picture, no sound and no system controls. Only for
+    ///     tests, which need the real mpv logic without a screen.
+    ///   - watchLaterFolder: where resume positions are saved. Tests pass
+    ///     their own folder so they never touch the app's real positions.
+    init(headless: Bool = false, watchLaterFolder: URL = MPVPlayer.watchLaterFolder) {
         guard let handle = mpv_create() else { fatalError("libmpv failed to start") }
         mpv = handle
+        controls = headless ? nil : SystemMediaControls()
 
         layer.framebufferOnly = true
         layer.backgroundColor = CGColor(gray: 0, alpha: 1)
 
         // Options must be set before mpv_initialize. Reference:
         // https://mpv.io/manual/stable/#options
-        // "wid" tells mpv where to draw: the layer's memory address, passed
-        // as a 64-bit number. Unmanaged gets that address without changing
-        // who owns the layer (the player keeps it alive in `layer`).
-        var layerAddress = Int64(Int(bitPattern: Unmanaged.passUnretained(layer).toOpaque()))
-        mpv_set_option(mpv, "wid", MPV_FORMAT_INT64, &layerAddress)
-        setOption("vo", "gpu-next")
-        setOption("gpu-api", "vulkan")
-        setOption("gpu-context", "moltenvk")
-        // Hardware decoding: far less battery than decoding on the CPU.
-        setOption("hwdec", "videotoolbox")
+        if headless {
+            setOption("vo", "null")
+            setOption("ao", "null")
+        } else {
+            // "wid" tells mpv where to draw: the layer's memory address,
+            // passed as a 64-bit number. Unmanaged gets that address without
+            // changing who owns the layer (the player keeps it alive in
+            // `layer`).
+            var layerAddress = Int64(Int(bitPattern: Unmanaged.passUnretained(layer).toOpaque()))
+            mpv_set_option(mpv, "wid", MPV_FORMAT_INT64, &layerAddress)
+            setOption("vo", "gpu-next")
+            setOption("gpu-api", "vulkan")
+            setOption("gpu-context", "moltenvk")
+            // Hardware decoding: far less battery than decoding on the CPU.
+            setOption("hwdec", "videotoolbox")
+        }
         // At the end of a file, stay paused on the last frame instead of
         // unloading it, so the controls still have something to show.
         setOption("keep-open", "yes")
@@ -96,7 +114,8 @@ final class MPVPlayer: ObservableObject {
         // Resume where you left off ("watch later"), mpv's own feature.
         // Keyed on the file name only: the app's folder path changes when
         // iOS updates or restores the app, which would lose every position.
-        setOption("watch-later-dir", Self.watchLaterFolder.path)
+        try? FileManager.default.createDirectory(at: watchLaterFolder, withIntermediateDirectories: true)
+        setOption("watch-later-dir", watchLaterFolder.path)
         setOption("ignore-path-in-watch-later-config", "yes")
         #if DEBUG
         mpv_request_log_messages(mpv, "warn")
@@ -148,10 +167,13 @@ final class MPVPlayer: ObservableObject {
 
     // MARK: Controls
 
-    func load(_ url: URL) {
+    /// `title` is what the lock screen and Control Center show.
+    func load(_ url: URL, title: String) {
         // A file outside the app (opened, dropped, shared) can only be read
         // while its security scope is switched on: for the whole playback.
         openFile = (url, url.startAccessingSecurityScopedResource())
+        failure = nil
+        controls?.attach(to: self, title: title)
         // "vid=auto" as a per-file option (applied after the resume file):
         // positions saved before the fix above still carry "vid=no", and
         // this overrides it. -1 = no playlist index, needed to reach options.
@@ -159,6 +181,8 @@ final class MPVPlayer: ObservableObject {
     }
 
     func togglePause() { setFlag("pause", !isPaused) }
+    func play() { setFlag("pause", false) }
+    func pause() { setFlag("pause", true) }
 
     func seek(to seconds: Double) {
         command("seek", String(seconds), "absolute")
@@ -181,6 +205,7 @@ final class MPVPlayer: ObservableObject {
         guard !isShutDown else { return }
         isShutDown = true
         NotificationCenter.default.removeObserver(self)
+        controls?.detach(from: self)
 
         saveResumePosition()
 
@@ -257,7 +282,27 @@ final class MPVPlayer: ObservableObject {
                 case .video: self.hasVideo = flag
                 case .end: self.reachedEnd = flag
                 }
+                // Not on every position tick: the lock screen counts the
+                // time on by itself from the last update and the play rate.
+                if observed != .position { self.controls?.update(from: self) }
             }
+
+        // After a seek (or the first frame) playback restarts from a new
+        // spot; the lock screen needs the new time.
+        case MPV_EVENT_PLAYBACK_RESTART:
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.controls?.update(from: self)
+            }
+
+        // mpv stopped playing a file. Only an error matters here: normal
+        // ends stay open on the last frame (keep-open), and closing the
+        // player is our own doing.
+        case MPV_EVENT_END_FILE:
+            guard let end = event.data?.assumingMemoryBound(to: mpv_event_end_file.self).pointee,
+                  end.reason == MPV_END_FILE_REASON_ERROR else { return }
+            let message = Self.describe(error: end.error)
+            DispatchQueue.main.async { [weak self] in self?.failure = message }
 
         case MPV_EVENT_LOG_MESSAGE:
             if let message = event.data?.assumingMemoryBound(to: mpv_event_log_message.self).pointee {
@@ -266,6 +311,21 @@ final class MPVPlayer: ObservableObject {
 
         default:
             break
+        }
+    }
+
+    /// mpv's error codes in plain words. The likely causes are named,
+    /// because "loading failed" alone doesn't tell anyone what to do.
+    static func describe(error: Int32) -> String {
+        switch mpv_error(error) {
+        case MPV_ERROR_LOADING_FAILED:
+            "ReWatch couldn't read the file. If it's on a USB drive or in the cloud, check it's still connected, then try again."
+        case MPV_ERROR_UNKNOWN_FORMAT:
+            "This doesn't look like a video or audio file ReWatch can play. It may be damaged or only partly downloaded."
+        case MPV_ERROR_NOTHING_TO_PLAY:
+            "The file has no sound or picture that ReWatch can play."
+        default:
+            "Playback stopped: \(String(cString: mpv_error_string(error)))."
         }
     }
 
