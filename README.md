@@ -12,13 +12,14 @@ A media player for iPhone, iPad and Mac, built on [mpv](https://mpv.io). It play
 
 MKV and other containers can carry several audio and subtitle tracks, including DTS and Dolby TrueHD sound.
 
-No account, no ads, no tracking. ReWatch never copies, uploads or stores your files: it reads them in place.
+No account, no ads, no tracking. ReWatch never uploads your files. It reads them in place, and only keeps a copy of the ones you choose to import.
 
 ## Features
 
 - **mpv playback engine.** libmpv, the engine inside the mpv desktop player, decodes everything, with hardware decoding through VideoToolbox.
 - **Open and play.** Pick a file, drag one onto the window, or choose **Open in ReWatch** from the share sheet or Finder. It starts playing from wherever it lives: Files, iCloud Drive, a USB drive, Downloads.
 - **Recents.** Files you've opened are listed for one-tap replay. They're references, not copies; removing one only forgets it.
+- **Import to this device.** **Import** (or File > Import…, ⇧⌘I, on the Mac) copies files into ReWatch, listed under **On This Device**, so they play with the USB drive unplugged or offline. A Recents entry can be copied too: swipe right or long-press, then **Save to This Device**. On iPhone and iPad the copies also show in the Files app under On My iPhone > ReWatch. Deleting one removes only the copy.
 - **Resume where you left off.** Closing a file saves your position. Files you finish start from the beginning next time.
 - **Audio and subtitle tracks.** Switch to the next track with one tap. mpv shows the track name on screen.
 - **Background audio.** Music keeps playing with the screen locked.
@@ -59,7 +60,7 @@ Run `xcodegen generate` again after adding, moving or deleting source files.
 ```
 ReWatch/
   App/          App entry point, themes, Licenses screen
-  Library/      Recents list, opening files (bookmarks, never copies)
+  Library/      Recents (bookmarks to files in place) and imported files (LocalLibrary)
   Player/       mpv wrapper (MPVPlayer), video surface, player screen
   Resources/    App icon, accent colour, licence texts shown in the app
   Supporting/   Info.plist (generated from project.yml), Mac sandbox entitlements

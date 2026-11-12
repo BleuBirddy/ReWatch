@@ -64,6 +64,9 @@ targets:
         # it is. (Some apps still send a copy to Documents/Inbox; ReWatch
         # deletes that copy when its player closes.)
         LSSupportsOpeningDocumentsInPlace: true
+        # Imported files (Documents) show in the Files app under
+        # On My iPhone > ReWatch, where they can be added or removed.
+        UIFileSharingEnabled: true
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft

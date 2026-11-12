@@ -4,6 +4,7 @@ import AVFoundation
 @main
 struct ReWatchApp: App {
     @StateObject private var recents = Recents()
+    @StateObject private var library = LocalLibrary()
 
     init() {
         // .playback: sound plays even with the silent switch on, and keeps
@@ -20,6 +21,7 @@ struct ReWatchApp: App {
         WindowGroup {
             LibraryView()
                 .environmentObject(recents)
+                .environmentObject(library)
                 // "Open in ReWatch" from Files or the share sheet, or
                 // Open With / double-click in Finder: play it where it is.
                 .onOpenURL { url in recents.open(url) }
@@ -36,6 +38,8 @@ struct ReWatchApp: App {
             CommandGroup(replacing: .newItem) {
                 Button("Open…") { recents.openRequested = true }
                     .keyboardShortcut("o")
+                Button("Import…") { library.importRequested = true }
+                    .keyboardShortcut("i", modifiers: [.command, .shift])
             }
         }
 

@@ -1,12 +1,19 @@
 import SwiftUI
 
-/// The main screen: files you've opened recently, and a way to open more.
-/// Nothing here is stored in the app; each row is a reference to a file
-/// wherever it lives (Files, iCloud Drive, a USB drive, Downloads...).
+/// The main screen: files imported onto this device, files you've opened
+/// recently, and ways to open or import more. Recents are references to
+/// files wherever they live (Files, iCloud Drive, a USB drive...); only
+/// "On This Device" holds real copies.
 struct LibraryView: View {
     @EnvironmentObject private var recents: Recents
+    @EnvironmentObject private var library: LocalLibrary
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage("theme") private var theme: AppTheme = .standard
     @State private var showOpenPanel = false
+    /// One file picker serves both buttons (SwiftUI only honours one
+    /// fileImporter per view); this says which one opened it.
+    @State private var pickerImports = false
+    @State private var confirmDelete: LocalLibrary.File?
     @State private var playing: MediaItem?
     @State private var showLicenses = false
     #if os(macOS)
@@ -16,40 +23,65 @@ struct LibraryView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if recents.items.isEmpty {
+                if recents.items.isEmpty && library.files.isEmpty && library.importing == 0 {
                     ContentUnavailableView {
                         Label("Nothing playing yet", systemImage: "play.rectangle")
                     } description: {
                         Text(Self.emptyHint)
                     } actions: {
-                        Button { showOpenPanel = true } label: {
+                        Button { pick(importing: false) } label: {
                             Text("Open a File").foregroundStyle(theme.background)
                         }
                         .buttonStyle(.borderedProminent)
+                        Button("Import to This Device") { pick(importing: true) }
                     }
                 } else {
                     List {
-                        Section {
-                            ForEach(recents.items) { item in
-                                Button { replay(item) } label: { MediaRow(item: item) }
-                                    .buttonStyle(.plain)
-                                    .listRowBackground(theme.surface)
-                                    // "Remove" forgets the entry; the file stays put.
-                                    .swipeActions {
-                                        Button(role: .destructive) { recents.forget(item) } label: {
-                                            Label("Remove", systemImage: "minus.circle")
+                        if !library.files.isEmpty || library.importing > 0 {
+                            onDeviceSection
+                        }
+                        if !recents.items.isEmpty {
+                            Section {
+                                ForEach(recents.items) { item in
+                                    Button { replay(item) } label: { MediaRow(item: item) }
+                                        .buttonStyle(.plain)
+                                        .listRowBackground(theme.surface)
+                                        // "Remove" forgets the entry; the file stays put.
+                                        .swipeActions {
+                                            Button(role: .destructive) { recents.forget(item) } label: {
+                                                Label("Remove", systemImage: "minus.circle")
+                                            }
                                         }
-                                    }
-                                    .contextMenu {
-                                        Button("Remove from Recents", systemImage: "minus.circle") { recents.forget(item) }
-                                    }
+                                        .swipeActions(edge: .leading) {
+                                            Button { saveToDevice(item) } label: {
+                                                Label("Save to This Device", systemImage: "square.and.arrow.down")
+                                            }
+                                        }
+                                        .contextMenu {
+                                            Button("Save to This Device", systemImage: "square.and.arrow.down") { saveToDevice(item) }
+                                            Button("Remove from Recents", systemImage: "minus.circle") { recents.forget(item) }
+                                        }
+                                }
+                            } header: {
+                                Text("Recent").foregroundStyle(theme.accent.opacity(0.8))
                             }
-                        } header: {
-                            Text("Recent").foregroundStyle(theme.accent.opacity(0.8))
                         }
                     }
                     // Hide the system's grey list background so ours shows.
                     .scrollContentBackground(.hidden)
+                    // On the List. On the Section it never appeared; and with it
+                    // beside the file picker (plus a switchable multiple-selection
+                    // setting) the picker stopped opening. Tested in the simulator.
+                    .confirmationDialog("Delete \u{201C}\(confirmDelete?.title ?? "")\u{201D} from this device?",
+                                        isPresented: Binding(get: { confirmDelete != nil },
+                                                             set: { if !$0 { confirmDelete = nil } }),
+                                        titleVisibility: .visible) {
+                        Button("Delete", role: .destructive) {
+                            if let file = confirmDelete { library.delete(file) }
+                        }
+                    } message: {
+                        Text("The copy in ReWatch is removed for good. The original, wherever it came from, isn't touched.")
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -69,30 +101,46 @@ struct LibraryView: View {
                         Label { Text("Licenses") } icon: { tinted("info.circle") }
                     }
                     themeMenu
-                    Button { showOpenPanel = true } label: {
+                    Button { pick(importing: true) } label: {
+                        Label { Text("Import") } icon: { tinted("square.and.arrow.down") }
+                    }
+                    Button { pick(importing: false) } label: {
                         Label { Text("Open") } icon: { tinted("folder") }
                     }
                 }
             }
             .sheet(isPresented: $showLicenses) { LicensesView() }
+            // Multiple selection for both, kept fixed (see the delete dialog
+            // above). Open with several files plays the first and remembers
+            // the rest.
             .fileImporter(isPresented: $showOpenPanel,
-                          allowedContentTypes: Recents.openTypes) { result in
-                if case .success(let url) = result { recents.open(url) }
+                          allowedContentTypes: Recents.openTypes,
+                          allowsMultipleSelection: true) { result in
+                guard case .success(let urls) = result else { return }
+                if pickerImports { library.importFiles(urls) } else { recents.open(urls) }
             }
             #if os(iOS)
             .fullScreenCover(item: $playing) { item in
                 PlayerView(item: item)
             }
             #endif
-            .alert("Can't play that", isPresented: Binding(
-                get: { recents.lastError != nil },
-                set: { if !$0 { recents.lastError = nil } })) {
+            // One alert for both: two alerts on one view can't both show.
+            .alert("Something went wrong", isPresented: Binding(
+                get: { recents.lastError != nil || library.lastError != nil },
+                set: { if !$0 { recents.lastError = nil; library.lastError = nil } })) {
                 Button("OK", role: .cancel) {}
             } message: {
-                Text(recents.lastError ?? "")
+                Text(recents.lastError ?? library.lastError ?? "")
             }
             .onChange(of: recents.openRequested) { _, requested in
-                if requested { showOpenPanel = true; recents.openRequested = false }
+                if requested { pick(importing: false); recents.openRequested = false }
+            }
+            .onChange(of: library.importRequested) { _, requested in
+                if requested { pick(importing: true); library.importRequested = false }
+            }
+            // Files may have been added or deleted in the Files app meanwhile.
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { library.reload() }
             }
             // A file opened from outside the list (Open panel, a drop,
             // Open in ReWatch, Finder): play it.
@@ -117,6 +165,51 @@ struct LibraryView: View {
         .preferredColorScheme(.dark)
         // New bars pick up the new title colour (see applyToNavigationBars).
         .id(theme)
+    }
+
+    private var onDeviceSection: some View {
+        Section {
+            ForEach(library.files) { file in
+                Button { if let item = library.item(for: file) { play(item) } } label: {
+                    LocalRow(file: file)
+                }
+                .buttonStyle(.plain)
+                .listRowBackground(theme.surface)
+                .swipeActions {
+                    Button(role: .destructive) { confirmDelete = file } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
+                .contextMenu {
+                    Button("Delete from This Device", systemImage: "trash", role: .destructive) { confirmDelete = file }
+                }
+            }
+            if library.importing > 0 {
+                HStack(spacing: 12) {
+                    ProgressView().tint(theme.accent).frame(width: 36)
+                    Text(library.importing == 1 ? "Importing 1 file\u{2026}" : "Importing \(library.importing) files\u{2026}")
+                }
+                .padding(.vertical, 4)
+                .listRowBackground(theme.surface)
+            }
+        } header: {
+            Text("On This Device").foregroundStyle(theme.accent.opacity(0.8))
+        }
+    }
+
+    private func pick(importing: Bool) {
+        pickerImports = importing
+        showOpenPanel = true
+    }
+
+    /// Copies a Recents file into the app, e.g. to keep a video from a USB
+    /// drive after unplugging it.
+    private func saveToDevice(_ item: MediaItem) {
+        guard let (url, _) = item.resolve() else {
+            recents.lastError = "Couldn't find \u{201C}\(item.title)\u{201D}. If it's on a drive, plug it back in."
+            return
+        }
+        library.importFiles([url])
     }
 
     /// A Recents row: check the file is still there, then play it.
@@ -152,9 +245,9 @@ struct LibraryView: View {
 
     private static var emptyHint: String {
         #if os(macOS)
-        "Open a video or audio file, or drag one onto this window. It plays from where it is; nothing is copied."
+        "Open a video or audio file, or drag one onto this window, to play it from where it is. Or import it to keep a copy in ReWatch."
         #else
-        "Open a video or audio file from Files, or share one to ReWatch. It plays from where it is; nothing is copied."
+        "Open a video or audio file from Files, or share one to ReWatch, to play it from where it is. Or import it to keep a copy on this device."
         #endif
     }
 
@@ -191,6 +284,28 @@ private struct MediaRow: View {
             Spacer(minLength: 0)
         }
         // The whole row is clickable on the Mac, not just the text.
+        .contentShape(Rectangle())
+        .padding(.vertical, 4)
+    }
+}
+
+private struct LocalRow: View {
+    let file: LocalLibrary.File
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: Recents.audioExtensions.contains(file.ext) ? "music.note"
+                  : Recents.playlistExtensions.contains(file.ext) ? "list.bullet" : "film")
+                .font(.title2)
+                .frame(width: 36)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(file.title).lineLimit(2)
+                Text("\(file.ext.uppercased()) · \(ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))")
+                    .font(.caption)
+                    .opacity(0.8)
+            }
+            Spacer(minLength: 0)
+        }
         .contentShape(Rectangle())
         .padding(.vertical, 4)
     }
