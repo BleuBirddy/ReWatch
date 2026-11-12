@@ -104,6 +104,13 @@ final class MPVPlayer: ObservableObject {
 
         check(mpv_initialize(mpv))
 
+        // Don't save which video track was on. The app switches video off
+        // in the background and saves right then (didEnterBackground), so
+        // the saved file said "vid=no" and the next play was sound only.
+        // change-list, after initialize: the "-remove" option suffix set
+        // through mpv_set_option_string had no effect (tested).
+        command("change-list", "watch-later-options", "remove", "vid")
+
         for property in Observed.allCases {
             mpv_observe_property(mpv, property.rawValue, property.name, property.format)
         }
@@ -145,7 +152,10 @@ final class MPVPlayer: ObservableObject {
         // A file outside the app (opened, dropped, shared) can only be read
         // while its security scope is switched on: for the whole playback.
         openFile = (url, url.startAccessingSecurityScopedResource())
-        command("loadfile", url.path, "replace")
+        // "vid=auto" as a per-file option (applied after the resume file):
+        // positions saved before the fix above still carry "vid=no", and
+        // this overrides it. -1 = no playlist index, needed to reach options.
+        command("loadfile", url.path, "replace", "-1", "vid=auto")
     }
 
     func togglePause() { setFlag("pause", !isPaused) }
