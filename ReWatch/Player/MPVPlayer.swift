@@ -35,6 +35,17 @@ final class MPVPlayer: ObservableObject {
         reachedEnd && duration > 0 && position >= duration - 1
     }
 
+    /// A moving picture is on screen right now, so the screen should stay
+    /// on. Not for music with cover art: mpv shows the cover as a "video"
+    /// of one frame, and a phone that never locks while playing an album
+    /// would drain its battery.
+    var keepsScreenAwake: Bool {
+        guard hasVideo, !isPaused, !isShutDown else { return false }
+        guard let value = mpv_get_property_string(mpv, "current-tracks/video/albumart") else { return true }
+        defer { mpv_free(value) }
+        return String(cString: value) != "yes"
+    }
+
     let layer = MetalLayer()
 
     private let mpv: OpaquePointer
@@ -213,13 +224,17 @@ final class MPVPlayer: ObservableObject {
         // On `queue`, after any event loop already queued, so the loop never
         // touches a destroyed handle.
         let handle = mpv
-        let file = openFile, closed = onClosed
+        let file = openFile, closed = onClosed, hadControls = controls != nil
         queue.async { [weak self] in
             self?.destroyed = true
             mpv_terminate_destroy(handle)
             // mpv has closed the file; now it's safe to give up access.
             if let file, file.scoped { file.url.stopAccessingSecurityScopedResource() }
-            DispatchQueue.main.async { closed?() }
+            DispatchQueue.main.async {
+                // Only now is the sound really off (see playbackEnded).
+                if hadControls { SystemMediaControls.playbackEnded() }
+                closed?()
+            }
         }
     }
 

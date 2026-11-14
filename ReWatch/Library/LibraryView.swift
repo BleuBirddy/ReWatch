@@ -121,7 +121,7 @@ struct LibraryView: View {
             }
             #if os(iOS)
             .fullScreenCover(item: $playing) { item in
-                PlayerView(item: item)
+                PlayerView(item: item) { playing = nil }
             }
             #endif
             // One alert for both: two alerts on one view can't both show.

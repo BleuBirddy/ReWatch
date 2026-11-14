@@ -5,6 +5,10 @@ import SwiftUI
 /// fade away again on their own.
 struct PlayerView: View {
     let item: MediaItem
+    /// Closes the player, given by whoever opened it. `dismiss` alone
+    /// proved unreliable on a real iPhone (the X did nothing), so the
+    /// owner also takes the player down itself.
+    var onClose: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
     @AppStorage("theme") private var theme: AppTheme = .standard
@@ -77,7 +81,7 @@ struct PlayerView: View {
         .alert("Can't play \u{201C}\(item.title)\u{201D}", isPresented: Binding(
             get: { openError != nil || player.failure != nil },
             set: { _ in })) {
-            Button("OK") { dismiss() }
+            Button("OK") { close() }
         } message: {
             Text(openError ?? player.failure ?? "")
         }
@@ -98,7 +102,7 @@ struct PlayerView: View {
                 .keyboardShortcut(.leftArrow, modifiers: [])
             Button("Forward 10 seconds") { player.skip(10); setControls(visible: true) }
                 .keyboardShortcut(.rightArrow, modifiers: [])
-            Button("Close") { dismiss() }
+            Button("Close") { close() }
                 .keyboardShortcut(.cancelAction)
         }
         .opacity(0)
@@ -123,8 +127,12 @@ struct PlayerView: View {
     private var controls: some View {
         VStack {
             HStack {
-                Button { dismiss() } label: {
+                Button { close() } label: {
                     Image(systemName: "xmark").font(.title3.weight(.semibold))
+                        // A finger-sized target (44 pt); the bare glyph
+                        // was about 20 pt and easy to miss.
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .accessibilityLabel("Close")
                 Text(item.title).font(.headline).lineLimit(1)
@@ -190,6 +198,11 @@ struct PlayerView: View {
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
         )
+    }
+
+    private func close() {
+        onClose?()
+        dismiss()
     }
 
     private func setControls(visible: Bool) {

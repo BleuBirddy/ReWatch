@@ -2,6 +2,7 @@ import Foundation
 import MediaPlayer
 #if os(iOS)
 import AVFoundation
+import UIKit
 #endif
 
 /// Connects a player to the system:
@@ -9,7 +10,10 @@ import AVFoundation
 ///   (Now Playing info plus remote commands; on the Mac, the media keys);
 /// - on iPhone/iPad, the phone's audio rules: pause for a call or Siri,
 ///   resume after if iOS says to, and pause when headphones are unplugged
-///   (so the sound doesn't suddenly come out of the speaker).
+///   (so the sound doesn't suddenly come out of the speaker);
+/// - the screen: kept on while a video is playing. Apple's own player does
+///   this by itself; mpv draws the picture without the system knowing a
+///   film is on, so the phone dimmed and locked as if nothing was happening.
 ///
 /// Main thread only. Each player has its own; only the one attached most
 /// recently drives the system (on the Mac several windows can be open).
@@ -23,6 +27,10 @@ final class SystemMediaControls {
     /// Remote command registrations, kept so they can be removed again.
     private var targets: [(MPRemoteCommand, Any)] = []
     private var observers: [NSObjectProtocol] = []
+    #if os(macOS)
+    /// Held while a video plays: the Mac's "don't sleep the display" token.
+    private var awakeToken: NSObjectProtocol?
+    #endif
 
     func attach(to player: MPVPlayer, title: String) {
         self.player = player
@@ -42,12 +50,23 @@ final class SystemMediaControls {
     func detach(from player: MPVPlayer) {
         guard self.player === player else { return }
         unregister()
+        keepScreenAwake(false)
         guard Self.current === self else { return }
         Self.current = nil
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         #if os(macOS)
         MPNowPlayingInfoCenter.default().playbackState = .stopped
-        #else
+        #endif
+    }
+
+    /// Call once mpv has stopped making sound (after it is destroyed).
+    /// Switching the audio session off while sound is still coming out is
+    /// an error to iOS ("session busy") and can hold the main thread up,
+    /// which is why this isn't part of `detach`.
+    static func playbackEnded() {
+        #if os(iOS)
+        // Another file may have started in the meantime; leave it alone.
+        guard current == nil else { return }
         // Let music the person paused for this (Spotify, Music) carry on.
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         #endif
@@ -57,7 +76,9 @@ final class SystemMediaControls {
     /// the duration becomes known; the system advances the time itself in
     /// between, from the elapsed time and the rate given here.
     func update(from player: MPVPlayer) {
-        guard Self.current === self, self.player === player else { return }
+        guard self.player === player else { return }
+        keepScreenAwake(player.keepsScreenAwake)
+        guard Self.current === self else { return }
         let info: [String: Any] = [
             MPMediaItemPropertyTitle: title,
             MPMediaItemPropertyPlaybackDuration: player.duration,
@@ -74,6 +95,22 @@ final class SystemMediaControls {
     }
 
     // MARK: Private
+
+    /// On only while a picture is moving: paused films, finished films and
+    /// music let the screen dim and lock as usual, to save the battery.
+    private func keepScreenAwake(_ on: Bool) {
+        #if os(iOS)
+        UIApplication.shared.isIdleTimerDisabled = on
+        #else
+        if on, awakeToken == nil {
+            awakeToken = ProcessInfo.processInfo.beginActivity(
+                options: [.idleDisplaySleepDisabled, .userInitiated], reason: "Playing a video")
+        } else if !on, let token = awakeToken {
+            ProcessInfo.processInfo.endActivity(token)
+            awakeToken = nil
+        }
+        #endif
+    }
 
     private func register() {
         let center = MPRemoteCommandCenter.shared()

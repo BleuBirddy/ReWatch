@@ -58,6 +58,20 @@ final class MPVPlayerTests: XCTestCase {
         try await waitUntil("mpv reports the failure") { self.player.failure != nil }
     }
 
+    /// The screen dimmed and locked in the middle of a film, because
+    /// nothing told the system a video was on. It must be kept awake
+    /// while the picture moves, and released again when paused.
+    func testScreenStaysAwakeOnlyWhilePlaying() async throws {
+        player.load(tinyVideo, title: "tiny")
+        try await waitUntil("the picture starts") { self.player.hasVideo }
+        player.seek(to: 0)
+        XCTAssertTrue(player.keepsScreenAwake, "playing video")
+
+        player.pause()
+        try await waitUntil("it pauses") { self.player.isPaused }
+        XCTAssertFalse(player.keepsScreenAwake, "paused video")
+    }
+
     func testAGoodFileReportsNoFailure() async throws {
         player.load(tinyVideo, title: "tiny")
         try await waitUntil("the file loads") { self.player.duration > 0 }
